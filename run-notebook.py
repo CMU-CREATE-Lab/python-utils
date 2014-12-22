@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import datetime, fcntl, json, os, pwd, re, sys, time, traceback, urllib2
+import codecs, datetime, fcntl, json, os, pwd, re, sys, time, traceback, urllib2
 
 
 def run_notebook():
@@ -12,7 +12,7 @@ def run_notebook():
     notebook_path = os.path.abspath(sys.argv[1])
 
     log_path = notebook_path + '.log'
-    logfile = open(log_path, 'a')
+    logfile = codecs.open(log_path, 'a', encoding='utf-8')
     logfile.write(header() + ': run-notebook.py %s\n' % sys.argv[1])
     logfile.flush()
 
@@ -41,10 +41,8 @@ def run_notebook():
             logfile.write('Instance of %s is already running (%s locked).  Exiting.\n' % (notebook_path, lock_path))
             logfile.flush()
             return 0
-    
-    
-        sys.stdout = logfile
-        sys.stderr = logfile
+        
+        sys.stdout = sys.stderr = logfile
     
         def exec_ipynb(filename_or_url):
             nb = (urllib2.urlopen(filename_or_url) if re.match(r'https?:', filename_or_url) else open(filename_or_url)).read()
