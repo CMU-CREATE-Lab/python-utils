@@ -1,7 +1,16 @@
 #!/usr/bin/python
 
-import codecs, datetime, fcntl, json, os, pwd, re, sys, time, traceback, urllib2
+import codecs, datetime, fcntl, json, os, pwd, re, subprocess, sys, time, traceback, urllib2
 
+def sendMail(toAddrs, subject, body):
+    p = subprocess.Popen(['/usr/sbin/sendmail', '-t', '-i'], stdin=subprocess.PIPE)
+    message = 'To: %s\nSubject: %s\n\n%s' % (', '.join(toAddrs), subject, body)
+    p.communicate(message)
+    if p.wait():
+        raise Exception('sendmail failed')
+
+email_on_fail = ['randy.sargent@gmail.com']
+timeout = 1800 # seconds
 
 def run_notebook():
     run_notebook_start_time = time.time()
@@ -41,6 +50,7 @@ def run_notebook():
             logfile.write('Instance of %s is already running (%s locked).  Exiting.\n' % (notebook_path, lock_path))
             logfile.flush()
             return 0
+
         
         sys.stdout = sys.stderr = logfile
     
@@ -52,32 +62,19 @@ def run_notebook():
             os.chdir(os.path.dirname(notebook_path))
             exec_ipynb(notebook_path)
         except:
-            logfile.write(header() + ': Caught exception trying to run notebook %s\n' % sys.exc_info()[0])
+            message = header() + ': Caught exception trying to run notebook %s: %s\n' % (notebook_path, sys.exc_info()[0])
+            message += traceback.format_exc()
+            logfile.write(message)
             logfile.flush()
-            traceback.print_exc(file=logfile)
-            logfile.flush()
+
+            # Email error
+            sendMail(email_on_fail, 'FAILED: %s' % notebook_path, message)
             return 1
     
         logfile.write(header() + ': run-notebook.py %s completed successfully after %d seconds\n' % (sys.argv[1], time.time() - run_notebook_start_time))
         return 0
     finally:
         fcntl.flock(lockfile, fcntl.LOCK_UN)
-
-def run_notebook_with_lock():
-    try:
-        lockfile = open('parse-achd.lockfile','w')
-        try:
-            fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except IOError:
-            print 'Instance of parse-and-upload-achd is already running.  Exiting.'
-            return
-        last_uploaded_pdf = find_last_uploaded_pdf()
-        for pdf in sorted(glob.glob('mirror/*.PDF')):
-            if force_reprocess or not last_uploaded_pdf or pdf > last_uploaded_pdf:
-                process_pdf(pdf)
-    finally:
-        fcntl.flock(lockfile, fcntl.LOCK_UN)
-
 
 sys.exit(run_notebook())
 
