@@ -1,6 +1,9 @@
 #!/usr/bin/python
 
-import codecs, datetime, fcntl, json, os, pwd, re, subprocess, sys, time, traceback, urllib2
+import argparse, codecs, datetime, fcntl, json, os, pwd, re, signal, subprocess, sys, time, traceback, urllib2
+
+def timeout(signum, frame):
+    raise Exception('Notebook running too long (%d seconds, --timeout); killing' % args.timeout)
 
 def sendMail(toAddrs, subject, body):
     p = subprocess.Popen(['/usr/sbin/sendmail', '-t', '-i'], stdin=subprocess.PIPE)
@@ -9,8 +12,14 @@ def sendMail(toAddrs, subject, body):
     if p.wait():
         raise Exception('sendmail failed')
 
-email_on_fail = ['randy.sargent@gmail.com']
-timeout = 1800 # seconds
+parser = argparse.ArgumentParser()
+parser.add_argument('notebook', help='Notebook to run')
+parser.add_argument('--email-on-fail', default='randy.sargent@gmail.com', help='Email this address on fail or timeout')
+parser.add_argument('--timeout', type=int, default=1800, help='Timeout, in seconds.  (Kill notebook if it runs this long.)')
+args = parser.parse_args()
+
+signal.signal(signal.SIGALRM, timeout)
+signal.alarm(args.timeout)
 
 def run_notebook():
     run_notebook_start_time = time.time()
@@ -22,7 +31,7 @@ def run_notebook():
 
     log_path = notebook_path + '.log'
     logfile = codecs.open(log_path, 'a', encoding='utf-8')
-    logfile.write(header() + ': run-notebook.py %s\n' % sys.argv[1])
+    logfile.write(header() + ': run-notebook.py %s\n' % args.notebook)
     logfile.flush()
 
     def get_username():
@@ -68,10 +77,10 @@ def run_notebook():
             logfile.flush()
 
             # Email error
-            sendMail(email_on_fail, 'FAILED: %s' % notebook_path, message)
+            sendMail([args.email_on_fail], 'FAILED: %s' % notebook_path, message)
             return 1
     
-        logfile.write(header() + ': run-notebook.py %s completed successfully after %d seconds\n' % (sys.argv[1], time.time() - run_notebook_start_time))
+        logfile.write(header() + ': run-notebook.py %s completed successfully after %d seconds\n' % (args.notebook, time.time() - run_notebook_start_time))
         return 0
     finally:
         fcntl.flock(lockfile, fcntl.LOCK_UN)
