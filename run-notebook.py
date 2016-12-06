@@ -65,7 +65,12 @@ def run_notebook():
     
         def exec_ipynb(filename_or_url):
             nb = (urllib2.urlopen(filename_or_url) if re.match(r'https?:', filename_or_url) else open(filename_or_url)).read()
-            exec '\n'.join([''.join(cell['input']) for cell in json.loads(nb)['worksheets'][0]['cells'] if cell['cell_type'] == 'code']) in globals()
+            jsonNb = json.loads(nb)
+            #check for the modified formatting of Jupyter Notebook v4
+            if(jsonNb['nbformat'] == 4):
+                exec '\n'.join([''.join(cell['source']) for cell in jsonNb['cells'] if cell['cell_type'] == 'code']) in globals()
+            else:
+                exec '\n'.join([''.join(cell['input']) for cell in jsonNb['worksheets'][0]['cells'] if cell['cell_type'] == 'code']) in globals()
     
         try:
             os.chdir(os.path.dirname(notebook_path))
