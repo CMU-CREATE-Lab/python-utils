@@ -1,1 +1,6 @@
 .ipynb_checkpoints
+bar.py
+foo.py
+*~
+\#*
+run-notebook-2.py
