@@ -45,7 +45,6 @@ def run_notebook():
     logfile.write('Using python %s\n' % sys.executable)
     logfile.write('run-notebook.py is %s\n' % __file__)
     logfile.write('PATH: %s\n' % os.environ['PATH'])
-    logfile.write('HOME: %s\n' % os.environ['HOME'])
     logfile.write('Home directory: %s\n' % os.path.expanduser('~'))
     logfile.flush()
     
