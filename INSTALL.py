@@ -96,6 +96,11 @@ for src in srcs:
             os.rename(dest, moveaside)
         print('Symlinking {src_abspath} to {dest}'.format(**locals()))
         os.symlink(src_abspath, dest)
+    elif tokens[0] == 'SERVICE':
+        print('%s: enabling and starting (if not already enabled and started)' % src)
+        subprocess.check_output(['systemctl', 'enable', src_abspath])
+        subprocess.check_output(['systemctl', 'start', os.path.basename(src_abspath)])
+        
     elif tokens[0] == 'IGNORE':
         continue
     else:
