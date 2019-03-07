@@ -19,6 +19,11 @@ install_scripts = without_backup_files(glob.glob('INSTALL-*'))
 not_config_files = set(['INSTALL.py', 'APT-PACKAGES', 'APACHE-MODULES', 'RUBY-GEMS', 'SERVICES'] + install_scripts)
 
 if os.path.exists('APT-PACKAGES'):
+    cmd = ['apt-get', 'update']
+    print(' '.join(cmd))
+    out = subprocess.check_output(cmd)
+    print(out.decode('utf8'))
+
     packages = open('APT-PACKAGES').read().split()
     cmd = ['apt', '--yes', 'install', '--no-upgrade'] + packages
     print(' '.join(cmd))
