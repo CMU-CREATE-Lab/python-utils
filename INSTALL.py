@@ -2,6 +2,9 @@
 
 import datetime, glob, os, re, shlex, subprocess
 
+if subprocess.check_output('whoami').decode('utf8').strip() != 'root':
+    print('Please run INSTALL.py as root')
+    exit(1)
 
 # Change dir to dir of script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
