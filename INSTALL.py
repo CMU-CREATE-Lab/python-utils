@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
 
-import datetime, glob, os, re, shlex, subprocess
+import concurrent.futures, datetime, glob, json, os, re, shlex, subprocess
 
-if subprocess.check_output('whoami').decode('utf8').strip() != 'root':
+def exec_ipynb(filename_or_url):
+    nb = (requests.get(filename_or_url).json() if re.match(r'https?:', filename_or_url) else json.load(open(filename_or_url)))
+    if(nb['nbformat'] >= 4):
+        src = [''.join(cell['source']) for cell in nb['cells'] if cell['cell_type'] == 'code']
+    else:
+        src = [''.join(cell['input']) for cell in nb['worksheets'][0]['cells'] if cell['cell_type'] == 'code']
+    exec('\n'.join(src), globals())
+
+exec_ipynb(os.path.dirname(os.path.realpath(__file__)) + '/utils.ipynb')
+
+if subprocess_check('whoami').strip() != 'root':
     print('Please run INSTALL.py as root')
     exit(1)
 
@@ -19,37 +29,31 @@ moveaside_suffix = '-moveaside=' + datetime.datetime.now().strftime('%Y%m%d-%H%M
 
 install_scripts = without_backup_files(glob.glob('INSTALL-*'))
 
-not_config_files = set(['INSTALL.py', 'APT-PACKAGES', 'APACHE-MODULES', 'RUBY-GEMS', 'SERVICES'] + install_scripts)
+services = without_backup_files(glob.glob('*.service'))
+
+not_config_files = set(['INSTALL.py', 'APT-PACKAGES', 'APACHE-MODULES', 'RUBY-GEMS', 'SERVICES'] + install_scripts + services)
 
 if os.path.exists('APT-PACKAGES'):
-    cmd = ['apt-get', 'update']
-    print(' '.join(cmd))
-    out = subprocess.check_output(cmd)
-    print(out.decode('utf8'))
+    subprocess_check('apt-get update', verbose=True)
 
     packages = open('APT-PACKAGES').read().split()
-    cmd = ['apt', '--yes', 'install', '--no-upgrade'] + packages
-    print(' '.join(cmd))
-    out = subprocess.check_output(cmd)
-    print(out.decode('utf8'))
+    subprocess_check(['apt', '--yes', 'install', '--no-upgrade'] + packages, verbose=True)
 
 if os.path.exists('APACHE-MODULES'):    
     modules = open('APACHE-MODULES').read().split()
-    out = subprocess.check_output(['a2enmod'] + modules)
-    print(out.decode('utf8'))
+    subprocess_check(['a2enmod'] + modules, verbose=True)
     
 if os.path.exists('RUBY-GEMS'):    
     modules = open('RUBY-GEMS').read().split()
-    out = subprocess.check_output(['gem', 'install'] + modules)
-    print(out.decode('utf8'))
+    out = subprocess_check(['gem', 'install'] + modules, verbose=True)
 
 for script in install_scripts:
     script = './' + script
     print('Running %s:' % script)
-    print(subprocess.check_output([script]).decode('utf8').strip())
+    print(subprocess_check([script]).strip())
     print('Finished %s' % script)
 
-hostname = subprocess.check_output(['hostname', '-f']).decode('utf8').strip()
+hostname = subprocess_check(['hostname', '-f']).strip()
 
 for src in srcs:
     if src in not_config_files or src[-1] == '~' or src[0] == '#' or os.path.isdir(src):
@@ -103,24 +107,17 @@ for src in srcs:
             print('Moving aside {dest} to {moveaside}'.format(**locals()))
             os.rename(dest, moveaside)
         print('Symlinking {src_abspath} to {dest}'.format(**locals()))
-        os.symlink(src_abspath, dest)
-    elif tokens[0] == 'SERVICE':
-        print('%s: enabling and starting (if not already enabled and started)' % src)
-        subprocess.check_output(['systemctl', 'enable', src_abspath])
-        subprocess.check_output(['systemctl', 'start', os.path.basename(src_abspath)])
-        
+        os.symlink(src_abspath, dest)   
     elif tokens[0] == 'IGNORE':
         continue
     else:
         print('{src}: Cannot understand first line {firstline}'.format(**locals()))
         errs += 1
 
-if os.path.exists('SERVICES'):
-    services = open('SERVICES').read().split()
-    for service in services:
-        print('%s: enabling and starting (if not already enabled and started)' % service)
-        subprocess.check_output(['systemctl', 'enable', service])
-        subprocess.check_output(['systemctl', 'start', service])
+for service in services:
+    print('%s: enabling and starting (if not already enabled and started)' % service)
+    subprocess_check(['systemctl', 'enable', service], verbose=True)
+    subprocess_check(['systemctl', 'start', os.path.basename(service)], verbose=True)
     
 if errs:
     print('Failed to complete successfully')
