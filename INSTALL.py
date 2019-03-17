@@ -34,10 +34,18 @@ services = without_backup_files(glob.glob('*.service'))
 not_config_files = set(['INSTALL.py', 'APT-PACKAGES', 'APACHE-MODULES', 'RUBY-GEMS', 'SERVICES'] + install_scripts + services)
 
 if os.path.exists('APT-PACKAGES'):
-    subprocess_check('apt-get update', verbose=True)
+    requested_packages = set(open('APT-PACKAGES').read().split())
 
-    packages = open('APT-PACKAGES').read().split()
-    subprocess_check(['apt', '--yes', 'install', '--no-upgrade'] + packages, verbose=True)
+    installed_packages = set()
+    for line in subprocess_check('apt list --installed').split('\n'):
+        installed_packages.add(line.split('/', 1)[0])
+
+    needed_packages = sorted(list(requested_packages - installed_packages))
+
+    if needed_packages:
+        subprocess_check('apt-get update', verbose=True)
+
+        subprocess_check(['apt', '--yes', 'install', '--no-upgrade'] + packages, verbose=True)
 
 if os.path.exists('APACHE-MODULES'):    
     modules = open('APACHE-MODULES').read().split()
@@ -53,7 +61,11 @@ for script in install_scripts:
     print(subprocess_check([script]).strip())
     print('Finished %s' % script)
 
-hostname = subprocess_check(['hostname', '-f']).strip()
+try:
+    hostname = subprocess_check('hostname -f').strip()
+except:
+    # Omit -f flag to hostname if it fails
+    hostname = subprocess_check('hostname').strip()
 
 for src in srcs:
     if src in not_config_files or src[-1] == '~' or src[0] == '#' or os.path.isdir(src):
