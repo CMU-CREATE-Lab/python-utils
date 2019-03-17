@@ -29,9 +29,9 @@ moveaside_suffix = '-moveaside=' + datetime.datetime.now().strftime('%Y%m%d-%H%M
 
 install_scripts = without_backup_files(glob.glob('INSTALL-*'))
 
-services = without_backup_files(glob.glob('*.service'))
+service_files = without_backup_files(glob.glob('*.service'))
 
-not_config_files = set(['INSTALL.py', 'APT-PACKAGES', 'APACHE-MODULES', 'RUBY-GEMS', 'SERVICES'] + install_scripts + services)
+not_config_files = set(['INSTALL.py', 'APT-PACKAGES', 'APACHE-MODULES', 'RUBY-GEMS', 'SERVICES'] + install_scripts + service_files)
 
 if os.path.exists('APT-PACKAGES'):
     requested_packages = set(open('APT-PACKAGES').read().split())
@@ -126,7 +126,9 @@ for src in srcs:
         print('{src}: Cannot understand first line {firstline}'.format(**locals()))
         errs += 1
 
-for service in services:
+absolute_service_files = list(map(os.path.abspath, service_files))
+
+for service in absolute_service_files:
     print('%s: enabling and starting (if not already enabled and started)' % service)
     subprocess_check(['systemctl', 'enable', service], verbose=True)
     subprocess_check(['systemctl', 'start', os.path.basename(service)], verbose=True)
