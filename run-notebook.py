@@ -14,7 +14,7 @@ def header():
     return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + (', pid(%d)' % os.getpid())
 
 log_path = notebook_path + '.log'
-logfile = codecs.open(log_path, 'a', encoding='utf-8')
+logfile = codecs.open(log_path, 'a', encoding='utf-8', buffering=1)
 logfile.write(header() + ': run-notebook.py %s\n' % args.notebook)
 logfile.flush()
 
