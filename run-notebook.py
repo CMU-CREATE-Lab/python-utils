@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import argparse, codecs, datetime, fcntl, json, os, pwd, re, requests, signal, subprocess, sys, time, traceback
 
@@ -110,12 +110,12 @@ def run_notebook():
         try:
             os.chdir(os.path.dirname(notebook_path))
             exec_ipynb(notebook_path)
-        except:
+        except Exception as e:
             message = header() + ': Caught exception trying to run notebook %s: %s\n' % (notebook_path, sys.exc_info()[0])
             message += traceback.format_exc()
 
             # Email error
-            notebook_failed('run-notebook.py %s failed after %d seconds with message %s\n' % (args.notebook, time.time() - run_notebook_start_time, message))
+            notebook_failed('%s:%s\nExecution time %d seconds.\n%s\n' % (os.path.basename(args.notebook), e, time.time() - run_notebook_start_time, message))
             return
 
         notebook_succeeded('run-notebook.py %s completed successfully after %d seconds' % (args.notebook, time.time() - run_notebook_start_time))
