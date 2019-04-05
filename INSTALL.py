@@ -45,7 +45,7 @@ if os.path.exists('APT-PACKAGES'):
     if needed_packages:
         subprocess_check('apt-get update', verbose=True)
 
-        subprocess_check(['apt', '--yes', 'install', '--no-upgrade'] + packages, verbose=True)
+        subprocess_check(['apt', '--yes', 'install', '--no-upgrade'] + needed_packages, verbose=True)
 
 if os.path.exists('APACHE-MODULES'):    
     modules = open('APACHE-MODULES').read().split()
