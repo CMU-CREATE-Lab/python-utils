@@ -133,11 +133,12 @@ for service in absolute_service_files:
     subprocess_check(['systemctl', 'enable', service], verbose=True)
     subprocess_check(['systemctl', 'start', os.path.basename(service)], verbose=True)
     
-for service in open('SERVICES'):
-    service = service.strip()
-    print('%s: enabling and starting (if not already enabled and started)' % service)
-    subprocess_check(['systemctl', 'enable', service], verbose=True)
-    subprocess_check(['systemctl', 'start', service], verbose=True)
+if os.path.exists('SERVICES'):
+    for service in open('SERVICES'):
+        service = service.strip()
+        print('%s: enabling and starting (if not already enabled and started)' % service)
+        subprocess_check(['systemctl', 'enable', service], verbose=True)
+        subprocess_check(['systemctl', 'start', service], verbose=True)
 
 if errs:
     print('Failed to complete successfully')
