@@ -61,6 +61,13 @@ class SimpleSqlite:
         
         return self._perform_with_retries('execute_read_fetchall_dicts(%s)' % cmd, read_fetchall_dicts_fn)
 
+    def get_table_column_names(self, table_name):
+        return set(self.execute_read_fetchall_dicts('SELECT * FROM %s LIMIT 1;' % table_name)[0].keys())
+    
+    def add_column_if_not_exists(self, table_name, column_name, column_type):
+        if not column_name in self.get_table_column_names(table_name):
+            db.execute_write('ALTER TABLE %s ADD COLUMN %s %s;' % (table_name, column_name, column_type))
+
     def _get_TPID(self):
         return '%d.%s' % (os.getpid(), thread.get_ident())
 
