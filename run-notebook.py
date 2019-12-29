@@ -98,14 +98,21 @@ def run_notebook():
 
         
         sys.stdout = sys.stderr = logfile
-    
+
         def exec_ipynb(filename_or_url):
             nb = (requests.get(filename_or_url).json() if re.match(r'https?:', filename_or_url) else json.load(open(filename_or_url)))
             if(nb['nbformat'] >= 4):
                 src = [''.join(cell['source']) for cell in nb['cells'] if cell['cell_type'] == 'code']
             else:
                 src = [''.join(cell['input']) for cell in nb['worksheets'][0]['cells'] if cell['cell_type'] == 'code']
-            exec('\n'.join(src), globals())
+
+            tmpname = '/tmp/%s-%s-%d.py' % (os.path.basename(filename_or_url),
+                                    datetime.datetime.now().strftime('%Y%m%d%H%M%S%f'),
+                                    os.getpid())
+            src = '\n\n\n'.join(src)
+            open(tmpname, 'w').write(src)
+            code = compile(src, tmpname, 'exec')
+            exec(code, globals())
     
         try:
             os.chdir(os.path.dirname(notebook_path))
