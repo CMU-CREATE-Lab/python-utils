@@ -4,3 +4,4 @@ foo.py
 *~
 \#*
 run-notebook-2.py
+__pycache__
