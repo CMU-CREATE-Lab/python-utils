@@ -9,9 +9,6 @@ def reload_module(module_name):
     if module_name in sys.modules:
         importlib.reload(sys.modules[module_name])
 
-def testit():
-    return 234
-
 def subprocess_check(*args, **kwargs):
     verbose = kwargs.pop('verbose', False)
     ignore_error = kwargs.pop('ignore_error', False)
