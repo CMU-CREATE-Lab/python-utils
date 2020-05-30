@@ -13,12 +13,14 @@ class Psql:
             self.db.info(f'{self.name} took {time.time() - self.start:1f} seconds')
 
     class Transaction:
-        def __init__(self, db):
+        def __init__(self, db, suppress_errors=False):
             self.db = db
+            self.suppress_errors = suppress_errors
         
         def __enter__(self):
             if self.db._transaction_count == 0:
-                self.db.info('Starting transaction')
+                #self.db.info('Starting transaction')
+                pass
             self.db._transaction_count += 1
             if not self.db._cur:
                 self.db._cur = self.db._con.cursor()
@@ -28,10 +30,11 @@ class Psql:
             self.db._transaction_count -= 1
             if self.db._transaction_count == 0:
                 if tb is None:
-                    self.db.info('Committing transaction')
+                    #self.db.info('Committing transaction')
                     self.db._con.commit()
                 else:
-                    self.db.error('Exception; rolling back transaction')
+                    if not self.suppress_errors:
+                        self.db.error('Exception; rolling back transaction')
                     self.db._con.rollback()
                 self.db._cur.close()
                 self.db._cur = None
@@ -41,12 +44,13 @@ class Psql:
         self._cur = None # get cursors using with db.tranaction() as cursor
         self._transaction_count = 0
     
-    def transaction(self):
-        return self.Transaction(self)
+    def transaction(self, suppress_errors=False):
+        return self.Transaction(self, suppress_errors=suppress_errors)
 
-    def execute(self, query, vars=None):
-        with self.transaction() as cursor:
-            self.info(f'execute {query}')
+    def execute(self, query, vars=None, verbose=False, suppress_errors=False):
+        with self.transaction(suppress_errors=suppress_errors) as cursor:
+            if verbose:
+                self.info(f'execute {query}')
             return cursor.execute(query, vars)
 
     def copy_expert(self, sql, file, *args, **kwargs):
