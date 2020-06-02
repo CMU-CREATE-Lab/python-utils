@@ -1,5 +1,7 @@
+#%%
+
 import concurrent, concurrent.futures, datetime, importlib, math, os, requests
-import shutil, subprocess, sys, time, traceback
+import shutil, subprocess, sys, time, threading, traceback
 try:
     import dateutil, dateutil.tz
 except:
@@ -256,3 +258,21 @@ class StatInstance:
                  details=details, payload=payload, valid_for_secs=valid_for_secs, host=host, shortname=shortname)
 
 Stat = StatInstance()
+
+# ThCall(func, *args, **kwargs) calls func(*args, **kwargs) in a separate thread
+# value() waits for func to complete and returns its value
+class ThCall(threading.Thread):
+    def __init__(self, func, *args, **kwargs):
+        def runner():
+            self._value = func(*args, **kwargs)
+        super().__init__(target=runner)
+        self.start()
+    
+    def value(self):
+        if self.is_alive():
+            self.join()
+        return self._value
+
+
+
+# %%
