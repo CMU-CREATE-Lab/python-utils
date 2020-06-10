@@ -5,3 +5,4 @@ foo.py
 \#*
 run-notebook-2.py
 __pycache__
+.test_psql_credentials.json
