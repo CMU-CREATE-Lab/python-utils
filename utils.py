@@ -263,15 +263,24 @@ Stat = StatInstance()
 # value() waits for func to complete and returns its value
 class ThCall(threading.Thread):
     def __init__(self, func, *args, **kwargs):
+        self._exc_info = None
         def runner():
-            self._value = func(*args, **kwargs)
+            try:
+                self._value = func(*args, **kwargs)
+            except:
+                self._exc_info = sys.exc_info()
+                print('ThCall caught exception:')
+                traceback.print_exception(*self._exc_info)
         super().__init__(target=runner)
         self.start()
     
     def value(self):
         if self.is_alive():
             self.join()
-        return self._value
+        if self._exc_info:
+            raise self._exc_info[0]
+        else:
+            return self._value
 
 
 
