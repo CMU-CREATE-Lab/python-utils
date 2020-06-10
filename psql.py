@@ -39,8 +39,11 @@ class Psql:
                 self.db._cur.close()
                 self.db._cur = None
 
-    def __init__(self, *connect_args, **connect_kwargs):
-        self._con = psycopg2.connect(*connect_args, **connect_kwargs)
+    def __init__(self, dbname=None, user=None, password=None, host=None, port=None, **connect_kwargs):
+        for kwarg in ('dbname', 'user', 'password', 'host', 'port'):
+            if locals()[kwarg] != None:
+                connect_kwargs[kwarg] = locals()[kwarg]
+        self._con = psycopg2.connect(**connect_kwargs)
         self._cur = None # get cursors using with db.tranaction() as cursor
         self._transaction_count = 0
     
