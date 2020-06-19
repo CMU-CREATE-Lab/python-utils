@@ -1,6 +1,6 @@
 #%%
 
-import concurrent, concurrent.futures, datetime, importlib, math, os, requests
+import concurrent, concurrent.futures, datetime, importlib, math, os, re, requests
 import shutil, subprocess, sys, time, threading, traceback
 try:
     import dateutil, dateutil.tz
@@ -43,7 +43,6 @@ def download_file(url, filename, timeout=3600, make_parents=True):
         return True
     else:
         dirname = os.path.dirname(filename)
-        print('dirname is', dirname)
         if dirname and make_parents and not os.path.exists(dirname):
             os.makedirs(dirname)
         sys.stdout.write('Downloading %s to %s\n' % (url, filename))
@@ -105,7 +104,7 @@ class SimpleThreadPoolExecutor(concurrent.futures.ThreadPoolExecutor):
         for completed in concurrent.futures.as_completed(self.futures):
             try:
                 results.append(completed.result())
-            except Exception as e:
+            except Exception:
                 exception_count += 1
                 sys.stderr.write(
                     'Exception caught in SimpleThreadPoolExecutor.shutdown.  Continuing until all are finished.\n' +
@@ -137,7 +136,7 @@ class SimpleProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
         for completed in concurrent.futures.as_completed(self.futures):
             try:
                 results.append(completed.result())
-            except Exception as e:
+            except Exception:
                 exception_count += 1
                 sys.stderr.write(
                     'Exception caught in SimpleProcessPoolExecutor.shutdown.  Continuing until all are finished.\n' +
@@ -179,7 +178,7 @@ def formatSecs(secs):
     if mins < 60:
         return '%.1f mins' % mins
 
-    hours = mins / 60;
+    hours = mins / 60
     if hours < 24:
         return '%.1f hrs' % hours
 
@@ -282,6 +281,3 @@ class ThCall(threading.Thread):
         else:
             return self._value
 
-
-
-# %%
