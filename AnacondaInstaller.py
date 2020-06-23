@@ -9,6 +9,8 @@ def installer_url():
     platform = utils.subprocess_check('uname -a').split()[0]
     if platform == 'Darwin':
         platform = 'MacOSX'
+    if platform == 'Linux':
+        arch = 'x86_64'
 
     installer_dir = 'https://repo.anaconda.com/archive/'
     body = requests.get(installer_dir).text
@@ -20,8 +22,9 @@ def installer_url():
     for installer in installers:
         tokens = re.split(r'[-\.]', installer)
         if ('Anaconda3' in tokens and 
-                platform in tokens and 
-                tokens[-1] == 'sh' and 
+                platform in tokens and
+                (not arch or arch in tokens) and
+                tokens[-1] == 'sh' and
                 installer_date(installer)):
             matching_installers.append(installer)
 
