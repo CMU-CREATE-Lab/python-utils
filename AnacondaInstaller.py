@@ -109,7 +109,7 @@ def install(installation_path, packages=None, conda_list_filename=None, dry_run=
             cmd = f'{use_anaconda} && conda install -y mamba -c conda-forge'
             print(cmd)
             if not dry_run:
-                subprocess.call(cmd, shell=True)
+                subprocess.call(cmd, shell=True, executable='/bin/bash')
 
         before = ['conda', 'conda-forge']
         after = ['pypi']
