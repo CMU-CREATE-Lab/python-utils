@@ -1,10 +1,18 @@
-
-
 # %%
 
 import itertools, os, re, requests, subprocess
 import utils
 from collections import defaultdict
+
+# Notes
+#
+# As of Jul 16, anaconda install followed by conda install mamba -c conda-forge was wedging forever
+# So instead, starting from Miniconda per the mamba recommendation
+# curl https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh > foo.sh
+# bash foo.sh
+# anaconda3/bin/activate 
+# conda install mamba -c conda-forge
+# mamba install conda -c conda-forge
 
 def installer_date(installer):
     matches = re.findall(r'(\d\d\d\d\.\d\d)', installer)
@@ -139,3 +147,6 @@ def install(installation_path, packages=None, conda_list_filename=None, dry_run=
     test_installation(installation_path)
 #install('../anaconda3', conda_list_filename='../anaconda-2020-06-27.list', force_conda_forge=True)
 #install('..')
+
+
+# %%
