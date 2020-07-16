@@ -12,6 +12,7 @@ def installer_date(installer):
 
 def installer_url():
     platform = utils.subprocess_check('uname -a').split()[0]
+    arch = None
     if platform == 'Darwin':
         platform = 'MacOSX'
     if platform == 'Linux':
