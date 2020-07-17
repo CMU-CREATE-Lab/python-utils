@@ -31,7 +31,7 @@ install_scripts = without_backup_files(glob.glob('INSTALL-*'))
 
 service_files = without_backup_files(glob.glob('*.service'))
 
-not_config_files = set(['INSTALL.py', 'APT-PACKAGES', 'APACHE-MODULES', 'RUBY-GEMS', 'SERVICES'] + install_scripts + service_files)
+not_config_files = set(['INSTALL.py', 'APT-PACKAGES', 'APACHE-MODULES', 'RUBY-GEMS', 'SERVICES', 'README.md'] + install_scripts + service_files)
 
 if os.path.exists('APT-PACKAGES'):
     requested_packages = set(open('APT-PACKAGES').read().split())
