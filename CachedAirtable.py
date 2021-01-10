@@ -211,7 +211,7 @@ class CachedAirtableView:
             self.key_map[key] = ins_res['id']
             
         print("  Adding to postgres")
-        with court_engine.connect() as con:
+        with self.engine.connect() as con:
             self.upsert(con,[ins_res],mirror_date)
             
         return ins_res
