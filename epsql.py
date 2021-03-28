@@ -9,14 +9,14 @@ Includes TIGER geocoding, simplified UNIX socket connection, convenience wrapper
 import functools, os, re, sqlalchemy, threading, time, types
 from utils.utils import ThCall, Stopwatch
 
-def sanitize_column_name(colname):
+def sanitize_column_name(colname: str):
     colname = re.sub(r'^\W+', '', colname) # Remove leading non-word-chars
     colname = re.sub(r'\W+$', '', colname) # Remove trailing non-word-chars
     colname = re.sub(r'\W+', '_', colname) # Replace contiguous sets of non-word-chars with underscore
     return colname.lower()
 
-def sanitize_column_names(df):
-    return df.rename(columns={c:sanitize_column_name(c) for c in df.columns})
+def sanitize_column_names(df, inplace=False):
+    return df.rename(columns={c:sanitize_column_name(c) for c in df.columns}, inplace=inplace)
 
 class ConnectionExtensions(sqlalchemy.engine.base.Connection):
     """Extensions for Connection and Engine
