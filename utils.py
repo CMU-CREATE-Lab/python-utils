@@ -158,10 +158,13 @@ class Stopwatch:
         self.name = name
     def __enter__(self):
         self.start = time.time()
+        self.start_cpu = time.clock()
     def __exit__(self, type, value, traceback):
-        sys.stdout.write('%s took %.1f seconds\n' % (self.name, time.time() - self.start))
+        sys.stdout.write(
+            '%s took %.1f seconds (%.1f CPU)\n' 
+            % (self.name, time.time() - self.start, time.clock() - self.start_cpu))
         sys.stdout.flush()
-
+        
 def sleep_until_next_period(period, offset=0):
     now = time.time()
     start_of_next_period = math.ceil((now - offset) / period) * period + offset
@@ -266,10 +269,9 @@ class ThCall(threading.Thread):
         def runner():
             try:
                 self._value = func(*args, **kwargs)
-            except:
-                self._exc_info = sys.exc_info()
-                print('ThCall caught exception:')
-                traceback.print_exception(*self._exc_info)
+            except Exception as e:
+                print(f'ThCall caught exception: {traceback.format_exc()}')
+                sys.stdout.flush()
         super().__init__(target=runner)
         self.start()
     
