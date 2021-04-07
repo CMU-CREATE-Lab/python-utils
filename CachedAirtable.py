@@ -145,12 +145,17 @@ class CachedAirtableEngine:
 # cat_engine is CachedAirtableEngine.  This encapsulates the 
 # SqlAlchemy engine, AirtableWrapper, and airtable_config_map
 class CachedAirtableView:
-    def __init__(self, baseName, tablename, view, key_col=None, cat_engine=None):
+    def __init__(self, baseName, tablename, view, record_counts_id=None, key_col=None, cat_engine=None):
         self.baseName = baseName
         self.tablename = tablename
         assert cat_engine, "ERROR: Must provide cat_engine arg to create a CachedAirtableView"
         self.engine = cat_engine
 
+        if record_counts_id:
+            self.record_counts_id = record_counts_id
+        else:
+            self.record_counts_id = None
+        
         self.table = cat_engine.get_aw().get_table(baseName, tablename)
         self.baseKey = self.table.url_table.split('/')[-2]
         self.view = view
@@ -201,6 +206,10 @@ class CachedAirtableView:
             print(f"Already have key {key}={rec_id} in {self.tablename}: {ins_obj}, switching to update")
             
             return self.update(rec_id,ins_obj)
+            
+        # Add Record counts field to preserve automation limit
+        if self.record_counts_id:
+            ins_obj['Record counts'] = [ self.record_counts_id ]
             
         print(f"Inserting into airtable {self.tablename}: {ins_obj}, key = '{key}'")
         mirror_date = datetime.datetime.now(datetime.timezone.utc)
@@ -520,7 +529,10 @@ class CachedAirtableBase:
 
     # Store a CachedAirtableView for a given table
     def add_view(self, tablename, viewname, key_col=None):
-        new_view = CachedAirtableView(self.baseName, tablename, viewname,key_col=key_col,cat_engine=self.engine)
+        rc_rec = self.get_record_counts_rec()
+        assert rc_rec and 'id' in rc_rec, "ERROR: rc_rec not found in CachedAirtableBase add_view"
+        
+        new_view = CachedAirtableView(self.baseName, tablename, viewname, record_counts_id=rc_rec['id'], key_col=key_col,cat_engine=self.engine)
         self.views[tablename][viewname] = new_view
 
         return new_view
