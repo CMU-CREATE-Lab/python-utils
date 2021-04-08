@@ -158,11 +158,11 @@ class Stopwatch:
         self.name = name
     def __enter__(self):
         self.start = time.time()
-        self.start_cpu = time.clock()
+        self.start_cpu = time.perf_counter()
     def __exit__(self, type, value, traceback):
         sys.stdout.write(
             '%s took %.1f seconds (%.1f CPU)\n' 
-            % (self.name, time.time() - self.start, time.clock() - self.start_cpu))
+            % (self.name, time.time() - self.start, time.perf_counter() - self.start_cpu))
         sys.stdout.flush()
         
 def sleep_until_next_period(period, offset=0):
