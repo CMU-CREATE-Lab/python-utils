@@ -54,35 +54,49 @@ def parse_conda_list(conda_list, force_conda_forge = False):
             if len(tokens) > 1:
                 channel = tokens[-1]
             else:
-                channel = 'pypi'
+                channel = 'conda-forge'
             if force_conda_forge and channel == 'conda':
                 channel = 'conda-forge'
             ret[channel].append(name)
     return dict(ret)
 
 def use_anaconda_prefix(installation_path):
+    installation_path = os.path.abspath(installation_path)
     return f". {installation_path}/bin/activate && conda activate {installation_path}"
 
-def run_and_parse_conda_list(installation_path):
-    current_package_list = utils.subprocess_check(
-            f'{use_anaconda_prefix(installation_path)} && conda list', 
-            executable='/bin/bash')
-    return parse_conda_list(current_package_list)
+def currently_installed_packages(installation_path):
+    installation_path = os.path.abspath(installation_path)
+    packages = set()
+    conda_list = utils.subprocess_check(
+        f'{use_anaconda_prefix(installation_path)} && conda list', 
+        executable='/bin/bash')
+    for line in conda_list.split('\n'):
+        line = line.strip()
+        if line and line[0] != '#':
+            packages.add(line.split()[0])
+    pip_list = utils.subprocess_check(
+        f'{use_anaconda_prefix(installation_path)} && pip list', 
+        executable='/bin/bash')
+    for line in pip_list.split('\n')[2:]:
+        line = line.strip()
+        if line:
+            packages.add(line.split()[0])
+    return packages
 
 def package_names(conda_packages):
     return sorted(set(itertools.chain.from_iterable(conda_packages.values())))
 
 def test_installation(installation_path):
+    installation_path = os.path.abspath(installation_path)
     print(f'Testing installation at {installation_path}')
     use_anaconda = use_anaconda_prefix(installation_path)
     uwsgi_path = os.path.join(installation_path, 'bin/uwsgi')
-    installed = package_names(run_and_parse_conda_list(installation_path))
+    installed = currently_installed_packages(installation_path)
     if 'uwsgi' in installed:
         utils.subprocess_check([uwsgi_path, '--version'], verbose=True)
     if 'geopandas' in installed:
         utils.subprocess_check(
             f'{use_anaconda} && python -c "import geopandas"', verbose=True, executable='/bin/bash')
-
 
 def install(installation_path, packages=None, conda_list_filename=None, dry_run=False, force_conda_forge=False):
     installation_path = os.path.abspath(installation_path)
@@ -92,7 +106,7 @@ def install(installation_path, packages=None, conda_list_filename=None, dry_run=
             open(conda_list_filename).read(), force_conda_forge=force_conda_forge)
 
     if os.path.exists(installation_path):
-        print(f'{installation_path} already installed')
+        print(f'{installation_path} already created')
     else:
         installer_path = f'/tmp/conda_installer_{os.getpid()}.sh'
 
@@ -112,19 +126,9 @@ def install(installation_path, packages=None, conda_list_filename=None, dry_run=
     if packages:
         use_anaconda = use_anaconda_prefix(installation_path)
 
-        run_and_parse_conda_list(installation_path)
-
-        installed = package_names(run_and_parse_conda_list(installation_path))
+        installed = currently_installed_packages(installation_path)
         have_mamba = ('mamba' in installed)
-        already_installed = []
-        for package in sorted(installed):
-            if package in packages:
-                del packages[package]
-                already_installed.append(package)
 
-        if already_installed:
-            print(f'Already installed: {already_installed}')
-        
         before = ['conda', 'conda-forge']
         after = ['pypi']
 
@@ -134,7 +138,10 @@ def install(installation_path, packages=None, conda_list_filename=None, dry_run=
                 install_channels.remove(channel)
         
         for channel in before + install_channels + after:
-            to_install = sorted(set(packages.get(channel, [])) - set(installed))
+            already_installed = set(packages.get(channel, [])).intersection(installed)
+            if already_installed:
+                print(f'{channel}: Already installed {sorted(already_installed)}')
+            to_install = sorted(set(packages.get(channel, [])) - installed)
             if to_install:
                 print()
                 cmd = f'{use_anaconda} && '
@@ -142,11 +149,11 @@ def install(installation_path, packages=None, conda_list_filename=None, dry_run=
                     cmd += ' pip install '
                 else:
                     if not have_mamba:
-                        mamba_cmd = f'{use_anaconda} && conda install -y mamba -c conda-forge'
+                        mamba_cmd = f'{use_anaconda} && conda install -y -n base mamba -c conda-forge'
                         print(mamba_cmd)
                         if not dry_run:
                             subprocess.call(mamba_cmd, shell=True, executable='/bin/bash')
-                        have_mamba = true
+                        have_mamba = True
                     cmd += ' mamba install -y '
                 cmd += " ".join(to_install)
                 if not channel in ['pypi', 'conda']:
