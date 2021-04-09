@@ -4,13 +4,16 @@ descartes conda-forge
 dill conda-forge
 earthengine-api conda-forge
 ffmpeg conda-forge
+flask conda-forge
 geoalchemy2 conda-forge
 geopandas conda-forge
 google-auth-oauthlib conda-forge
 gspread conda-forge
 mapboxgl conda-forge
 nbstripout conda-forge
+netCDF4 conda-forge
 pdfminer.six conda-forge
+pymc3 conda-forge
 psycopg2 conda-forge
 pysal conda-forge
 rasterio conda-forge
@@ -24,6 +27,12 @@ uwsgi conda-forge
 
 addresser pypi
 airtable-python-wrapper pypi
+apng pypi
 arcgis pypi
+contextily pypi
+folium pypi
+mapbox_vector_tile pypi
+opencv-python pypi
+PyPDF2 pypi
 usaddress pypi
 usaddress-scourgify pypi
