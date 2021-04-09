@@ -50,9 +50,11 @@ def parse_conda_list(conda_list, force_conda_forge = False):
     for line in conda_list.split('\n'):
         if line and line[0] != '#':
             tokens = line.strip().split()
-            if len(tokens) == 3:
-                tokens.append('conda')
-            (name, version, build, channel) = tokens
+            name = tokens[0]
+            if len(tokens) > 1:
+                channel = tokens[-1]
+            else:
+                channel = 'pypi'
             if force_conda_forge and channel == 'conda':
                 channel = 'conda-forge'
             ret[channel].append(name)
@@ -80,6 +82,7 @@ def test_installation(installation_path):
     if 'geopandas' in installed:
         utils.subprocess_check(
             f'{use_anaconda} && python -c "import geopandas"', verbose=True, executable='/bin/bash')
+
 
 def install(installation_path, packages=None, conda_list_filename=None, dry_run=False, force_conda_forge=False):
     installation_path = os.path.abspath(installation_path)
@@ -112,14 +115,16 @@ def install(installation_path, packages=None, conda_list_filename=None, dry_run=
         run_and_parse_conda_list(installation_path)
 
         installed = package_names(run_and_parse_conda_list(installation_path))
-        print(f'Already installed: {sorted(installed)}')
-        
-        if not 'mamba' in installed:
-            cmd = f'{use_anaconda} && conda install -y mamba -c conda-forge'
-            print(cmd)
-            if not dry_run:
-                subprocess.call(cmd, shell=True, executable='/bin/bash')
+        have_mamba = ('mamba' in installed)
+        already_installed = []
+        for package in sorted(installed):
+            if package in packages:
+                del packages[package]
+                already_installed.append(package)
 
+        if already_installed:
+            print(f'Already installed: {already_installed}')
+        
         before = ['conda', 'conda-forge']
         after = ['pypi']
 
@@ -136,6 +141,12 @@ def install(installation_path, packages=None, conda_list_filename=None, dry_run=
                 if channel == "pypi":
                     cmd += ' pip install '
                 else:
+                    if not have_mamba:
+                        mamba_cmd = f'{use_anaconda} && conda install -y mamba -c conda-forge'
+                        print(mamba_cmd)
+                        if not dry_run:
+                            subprocess.call(mamba_cmd, shell=True, executable='/bin/bash')
+                        have_mamba = true
                     cmd += ' mamba install -y '
                 cmd += " ".join(to_install)
                 if not channel in ['pypi', 'conda']:
