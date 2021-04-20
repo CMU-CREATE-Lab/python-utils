@@ -7,7 +7,6 @@ Includes TIGER geocoding, simplified UNIX socket connection, convenience wrapper
 
 
 import functools, os, re, sqlalchemy, threading, time, types
-from utils.utils import ThCall, Stopwatch
 
 def sanitize_column_name(colname: str):
     colname = re.sub(r'^\W+', '', colname) # Remove leading non-word-chars
@@ -17,6 +16,20 @@ def sanitize_column_name(colname: str):
 
 def sanitize_column_names(df, inplace=False):
     return df.rename(columns={c:sanitize_column_name(c) for c in df.columns}, inplace=inplace)
+
+# Returns table name portion of table_name_with_optional_schema
+def get_table_name(table_name_with_optional_schema):
+    if '.' in table_name_with_optional_schema:
+        return table_name_with_optional_schema.split('.')[-1]
+    else:
+        return table_name_with_optional_schema
+
+# Returns schema name portion of table_name_with_optional_schema;  'public' if no schema specified
+def get_schema(table_name_with_optional_schema):
+    if '.' in table_name_with_optional_schema:
+        return table_name_with_optional_schema.split('.')[0]
+    else:
+        return 'public'
 
 class ConnectionExtensions(sqlalchemy.engine.base.Connection):
     """Extensions for Connection and Engine
@@ -51,6 +64,16 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
     #def df_to_table(self, df, table_name, **kwargs):
     #    with Stopwatch(f'Adding {len(df)} records to {table_name}'):
     #        sanitize_column_names(df).to_sql(table_name, self, **kwargs)
+
+    def table_exists(self, table_name):
+        return self.execute_exists(f"""SELECT EXISTS (
+            SELECT FROM pg_tables WHERE schemaname='{get_schema(table_name)}' AND tablename='{get_table_name(table_name)}')""")
+
+    def execute_exists(self, sql, **kwargs):
+        return self.execute_returning_dicts(sql, **kwargs)[0]['exists']
+
+    def execute_count(self, sql, **kwargs):
+        return self.execute_returning_dicts(sql, **kwargs)[0]['count']
 
     def geocode(self, address, max_results=1, latlon_only=False):
         if latlon_only:
