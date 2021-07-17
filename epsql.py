@@ -75,6 +75,12 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
     def execute_count(self, sql, **kwargs):
         return self.execute_returning_dicts(sql, **kwargs)[0]['count']
 
+    def insert(self, table_name, record_dict):
+        keys = ','.join(record_dict.keys())
+        values = ','.join(['%s'] * len(record_dict))
+        cmd = f"INSERT INTO {table_name} ({keys}) VALUES ({values})"
+        return self.execute(cmd, tuple(record_dict.values()))
+
     def geocode(self, address, max_results=1, latlon_only=False):
         if latlon_only:
             sel = """
