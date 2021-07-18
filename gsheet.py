@@ -1,4 +1,4 @@
-import re
+import dateutil, io, json, re, requests
 import pandas as pd
 
 class GSheet:
@@ -50,12 +50,20 @@ class GSheet:
         if self.gid:
             ret += f'&gid={self.gid}'
         return ret
+    
+    debug = None
 
     def read_csv(self, record_modtimes=None):
         if record_modtimes is not None:
             record_modtimes[self.file_id] = self.get_modtime()
-        csv_df = pd.read_csv(
-            self.get_csv_export_url(), keep_default_na=False, dtype={'Enabled':str,'Share link identifier':str})
+        url = self.get_csv_export_url()
+        csv = requests.get(url).text
+        try:
+            csv_df = pd.read_csv(io.StringIO(csv), keep_default_na=False, dtype={'Enabled':str,'Share link identifier':str})
+        except Exception as e:
+            print('Catching exception in GSheet.read_csv.  Setting GSheet.debug')
+            GSheet.debug = dict(url=url, csv=csv)
+            raise
         # Get rid of any carriage returns or tabs (which google would have already done if we'd requested tsv)
         csv_df = csv_df.replace({'\n|\r|\t':''},regex=True)
         print(f'Read {self.get_csv_export_url()} ({len(csv_df)} rows)')
