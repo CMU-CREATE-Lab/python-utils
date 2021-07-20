@@ -1,7 +1,7 @@
 #%%
 
-import concurrent, concurrent.futures, datetime, importlib, math, os, re, requests
-import shutil, subprocess, sys, time, threading, traceback
+import concurrent, concurrent.futures, datetime, importlib, inspect, json, math, os, re
+import requests, shutil, subprocess, sys, time, threading, traceback
 try:
     import dateutil, dateutil.tz
 except:
@@ -282,4 +282,21 @@ class ThCall(threading.Thread):
             raise self._exc_info[0]
         else:
             return self._value
+
+def exec_ipynb(filename_or_url):
+    nb = (requests.get(filename_or_url).json() if re.match(r'https?:', filename_or_url) else json.load(open(filename_or_url)))
+    if(nb['nbformat'] >= 4):
+        src = [''.join(cell['source']) for cell in nb['cells'] if cell['cell_type'] == 'code']
+    else:
+        src = [''.join(cell['input']) for cell in nb['worksheets'][0]['cells'] if cell['cell_type'] == 'code']
+
+    tmpname = '/tmp/%s-%s-%d.py' % (os.path.basename(filename_or_url),
+                                    datetime.datetime.now().strftime('%Y%m%d%H%M%S%f'),
+                                    os.getpid())
+    src = '\n\n\n'.join(src)
+    open(tmpname, 'w').write(src)
+    code = compile(src, tmpname, 'exec')
+    globals = inspect.stack()[1][0].f_globals
+    exec(code, globals)
+
 
