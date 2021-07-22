@@ -101,6 +101,36 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
                 """
         return self.execute_returning_dicts(sel, address=address, max_results=max_results)
 
+    def repair_geometries_if_needed(self, table_name, geom_column='geom'):
+        print(f'Checking {table_name} for invalid geometries...')
+        count = self.execute_count(f'select count(*) from {table_name} where not st_isvalid({geom_column})')
+        if count:
+            print(f'Repairing {count} geometries in {table_name}')
+            cmd = f'update {table_name} set {geom_column} = st_makevalid({geom_column}) where not st_isvalid({geom_column})'
+            self.execute(cmd)
+        else:
+            print('No invalid geometries')
+
+    # According to tests with pasda alleg county parcels, doing the same
+    # highest-overlap match seems 3-4x faster by creating an intermediate table
+    # using select / distinct on dest id / order by intersection desc
+
+    def add_highest_overlap_crosswalk(self, dest_table_name, dest_col, src_table_name, src_col):
+        # Assumes dest_col should be text
+        print(f'Adding {dest_table_name}.{dest_col} as crosswalk to {src_table_name}.{src_col} selecting highest overlap...')
+        self.execute(f'alter table {dest_table_name} add if not exists {dest_col} text;')
+        cmd = f"""
+        update {dest_table_name} as dest
+            set {dest_col} = (
+                select src.{src_col}
+                from {src_table_name} as src
+                where st_intersects(src.geom, dest.geom) and not st_touches(src.geom, dest.geom)
+                order by st_area(st_intersection(src.geom, dest.geom)) desc
+                limit 1)
+        """
+        self.execute(cmd)
+        print(f'Done')
+
 def _with_connect(engine, member_name, *args, **kwargs):
     with engine.connect() as con:
         return getattr(con, member_name)(*args, **kwargs)
