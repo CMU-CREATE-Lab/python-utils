@@ -48,7 +48,11 @@ def download_file(url, filename, timeout=3600, make_parents=True):
         sys.stdout.write('Downloading %s to %s\n' % (url, filename))
 
         try:
-            response = requests.Session().get(url, timeout=timeout)
+            response = requests.Session().get(
+                url, 
+                timeout=timeout,
+                headers={'User-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.128 Safari/537.36'}
+            )
             if(response.status_code!=200):
                 print('Error response, code = %d, body = %s' % (response.status_code, response.text))
                 return False
