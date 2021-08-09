@@ -2,9 +2,9 @@
 
 import glob, os, psycopg2, re
 import geopandas as gpd
-import epsql, utils
+import utils
+from . import epsql
 
-engine = epsql.Engine()
 
 #%%
 tiger_downloads = 'tiger_downloads'
@@ -21,6 +21,12 @@ def tiger_name(year, state_fips, level):
     
 def tiger_table_name(year, level):
     return f'tiger_wgs84.tl_{year}_{level}'
+
+def tiger_geoid(year, level):
+    if level == 'tabblock10':
+        return 'geoid10'
+    else:
+        return 'geoid'
 
 def tiger_level_download_dir(level):
     # Uppercase and remove digits
@@ -70,7 +76,7 @@ def read_tiger_shapefile_as_wgs84(year, state_fips, level):
 
 # %%
 
-def load_tiger_geometries(year, state_fips_list, level:str , drop_first=False):
+def load_tiger_geometries(engine, year, state_fips_list, level:str , drop_first=False):
     assert(level in tiger_levels(year))
     table_name = tiger_table_name(year, level)
     schema = epsql.get_schema(table_name)
@@ -162,3 +168,21 @@ all_state_fips = [
 
 #%%
 
+def add_census_geoids(engine, dest_table, dest_geom_column, year, verbose=False):
+    print(f'Adding census geoids to {dest_table}.{dest_geom_column} from TIGER year {year}')
+    for level in tiger_levels(year):
+        census_table = tiger_table_name(year, level)
+        census_geoid_column = tiger_geoid(year, level)
+        dest_geoid_column = f'{dest_geom_column}_{level}_{census_geoid_column}'
+        engine.execute(f'ALTER TABLE {dest_table} DROP COLUMN IF EXISTS {dest_geoid_column}')
+        engine.execute(f'ALTER TABLE {dest_table} ADD COLUMN {dest_geoid_column} TEXT')
+        cmd = f"""
+            UPDATE {dest_table} AS dest
+            SET {dest_geoid_column} = tiger.{census_geoid_column}
+            FROM {census_table} AS tiger
+            WHERE ST_Contains(tiger.geom, dest.{dest_geom_column})"""
+        engine.execute(cmd, verbose=verbose)
+        geoid_count = engine.execute_count(f'SELECT COUNT({dest_geoid_column}) FROM {dest_table}')
+        all_count = engine.execute_count(f'SELECT COUNT(*) FROM {dest_table}')
+        print(f'  Created {dest_table}.{dest_geoid_column}, finding {geoid_count} of {all_count} records')
+# %%
