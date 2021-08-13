@@ -1,5 +1,7 @@
 
 #%%
+import binascii, sys
+from utils.utils import ThCall, SimpleThreadPoolExecutor
 
 """epsql:  Extensions to SQLAlchemy engine and connection
 
@@ -180,6 +182,7 @@ class Engine(ConnectionExtensions):
         return con
     
     def geocode_batch(self, addresses, max_results=1, nthreads=10):
+        print('RECOMMEND USING geocode_in_place instead (faster, writes directly to table)')
         mutex = threading.Lock()
         ret = [None] * len(addresses)
         i = len(addresses)
@@ -202,161 +205,50 @@ class Engine(ConnectionExtensions):
             for thread in threads:
                 thread.join()
         return ret
-
-# #%%
-# engine.geocode('3634 Frazier St, Pittsburgh PA')
-# #%%
-
-# type(results[0].items()[0][1])
-# #%%
-# df = engine.execute_returning_df('SELECT * FROM pa_act91_table LIMIT 2')
-# df
-# #%%
-# engine.execute_returning_dicts("""SELECT * FROM geocode(%(address)s, 1) As g;""", address="3634 Frazier St, Pittsburgh PA 15213")
-# #%%
-# engine.execute_returning_dicts("""
-# SELECT * FROM 
-#     (VALUES (%(index)s, %(input_address)s)) As a(index, input_address)
-# LEFT JOIN LATERAL
-#     geocode(a.input_address, 1) As g
-# ON true""",
-#     index=1, input_address="3634 Frazier St, Pittsburgh PA 15213")
-
-# #%%
-# engine.execute_returning_dicts("""
-# SELECT * FROM 
-#     (VALUES (%(index)s, %(input_address)s)) As a(index, input_address)
-# LEFT JOIN LATERAL
-#     geocode(a.input_address, 1) As g
-# ON true""",
-#     [{'index':1, 'input_address':"3634 Frazier St, Pittsburgh PA 15213"},
-#     {'index':1, 'input_address':"3634 Frazier St, Pittsburgh PA 15213"}])
-# #%%
-# engine.execute_returning_dicts("""
-#          SELECT geocode('3634 Frazier St, Pittsburgh PA 15213', 1)""")
-# #%%
-# engine.execute_returning_dicts("""
-#          SELECT a.index, a.input_address, g.addy, g.geomout, g.rating FROM
-#              (VALUES (%(index)s, %(input_address)s)) As a(index, input_address)
-#          LEFT JOIN LATERAL
-#              geocode(a.input_address, 1) As g
-#          ON true""",
-#          index=1, input_address='3634 Frazier St, Pittsburgh PA 15213')
-# #%%
-
-
-# #     execute_sql_gdf("""
-# #         SELECT a.index, a.input_address, g.addy, g.geomout, g.rating FROM
-# #             (SELECT index, input_address FROM pa_act91_table WHERE rating IS NULL LIMIT 100) As a
-# #         LEFT JOIN LATERAL
-# #             geocode(a.input_address, 1) As g
-# #         ON true""",
-# #         geom_col='geomout',
-# #         index_col='index')
-
-
-# #%%
-# def psql_type_from_column(col):
-#     import pandas as pd
-#     # Adapted from pandas.io.sql.py
-
-#     # Infer type of column, while ignoring missing values
-#     # Needed for inserting typed data containing NULLs, GH 8778.
-#     col_type = pd._libs.lib.infer_dtype(col, skipna=True)
-
-#     if col_type == "datetime64" or col_type == "datetime":
-#         # GH 9086: TIMESTAMP is the suggested type if the column contains
-#         # timezone information
-#         try:
-#             if col.dt.tz is not None:
-#                 return TIMESTAMP(timezone=True)
-#         except AttributeError:
-#             # The column is actually a DatetimeIndex
-#             # GH 26761 or an Index with date-like data e.g. 9999-01-01
-#             if getattr(col, "tz", None) is not None:
-#                 return "timestamp with time zone"
-#         return "timestamp without time zone"
-#     if col_type == "timedelta64":
-#         print("the 'timedelta' type is not supported, and will be "
-#               "written as integer values (ns frequency) to the database.")
-#         return "int8"
-#     elif col_type == "floating":
-#         if col.dtype == "float32":
-#             return "float4"
-#         else:
-#             return "float8"
-#     elif col_type == "integer":
-#         # GH35076 Map pandas integer to optimal SQLAlchemy integer type
-#         if col.dtype.name.lower() in ("int8", "uint8", "int16", "uint16", "int32"):
-#             return "int4"
-#         elif col.dtype.name.lower() == "uint64":
-#             raise ValueError("Unsigned 64 bit integer datatype is not supported")
-#         else:
-#             return "int8"
-#     elif col_type == "boolean":
-#         return "boolean"
-#     elif col_type == "date":
-#         return "date"
-#     elif col_type == "time":
-#         return "time"
-#     elif col_type == "complex":
-#         raise ValueError("Complex datatypes not supported")
-#     else:
-#         return "text"
-
-# #%%
-# df = engine.execute_returning_df('SELECT * FROM pa_act91_table WHERE rating IS NULL LIMIT 2')
-# # The real thing we want is upserting from to_sql
-# # https://stackoverflow.com/questions/55187884/insert-into-postgresql-table-from-pandas-with-on-conflict-update
-
-# def inline_df(df, as_table_name):
-#     params = []
-#     for col in df.columns:
-#         params.append(f'{sanitize_column_name(col)} {psql_type_from_column(df[col])}')
-#     return f"json_to_recordset(%({as_table_name}_data)s) as {as_table_name}({', '.join(params)})"
-
-# inline_df(df, 'foo')
-
-# #%%
-
-
-
-# #%%
-
-# with engine.connect() as con:
-#     con.execute(inline_df())
-# """, params=dict(records=json.dumps([{"index":1,"geom":"abc"},{"index":2,"geom":"def"}]))))
-
-
-# execute_sql_df("""
-# SELECT * FROM 
-
-
-# # def geocode(addresses_df):
     
-# #     execute_sql_gdf("""
-# #         SELECT a.index, a.input_address, g.addy, g.geomout, g.rating FROM
-# #             (SELECT index, input_address FROM pa_act91_table WHERE rating IS NULL LIMIT 100) As a
-# #         LEFT JOIN LATERAL
-# #             geocode(a.input_address, 1) As g
-# #         ON true""",
-# #         geom_col='geomout',
-# #         index_col='index')
+    def geocode_chunk_in_place(self, table_name, begin_idx=None, end_idx=None, idx_name='idx'):
+        if begin_idx != None:
+            condition = f'and {begin_idx} <= {idx_name} and {idx_name} <= {end_idx}'
+        else:
+            condition = ''
+
+        temp_table_name = f"tmp_geocode_chunk_{binascii.b2a_hex(os.urandom(20)).decode()}"
+
+        # To prevent long write locks on the destination table, first create a temporary table slowly with all the 
+        # geocoding results, and then quickly update all the geocodes from the temporary table into the destination table
+        self.execute(f"""
+        create temporary table {temp_table_name} on commit drop as
+            select idx, 
+                    coalesce(g.rating, -1) as geocode_rating, 
+                    pprint_addy(g.addy) as normalized_full_address, 
+                    st_transform(g.geomout, 4326) as geom
+            from (select idx, full_address
+                    from {table_name}
+                    where geocode_rating is null {condition}
+                    order by idx) As a
+                left join lateral
+                    geocode(pagc_normalize_address(a.full_address),1) As g on true;
+    
+        update {table_name} As t
+        set (geocode_rating, normalized_full_address, geom)
+            = (g.geocode_rating, g.normalized_full_address, g.geom)
+        from {temp_table_name} As g
+        where t.idx = g.idx
+        """)
+        sys.stdout.write(f'[coded {begin_idx}:{end_idx}]')
+        sys.stdout.flush()
+
+    def geocode_in_place(self, table_name, idx_name='idx', chunk_size=500, nthreads=15):
+        # Performance is around 400 geocodes per second, on hal21 with 15 threads
+        min_idx = self.execute_returning_dicts(f'select min(idx) from {table_name}')[0]['min']
+        max_idx = self.execute_returning_dicts(f'select max(idx) from {table_name}')[0]['max']
+        print(f'geocode_in_place: {idx_name} ranges from {min_idx} to {max_idx}')
+        print(max_idx)
+        pool = SimpleThreadPoolExecutor(nthreads)
+        chunks = list(range(min_idx, max_idx + 1, chunk_size))
+        print(f'Geocoding in {len(chunks)} chunks of size {chunk_size}')
+        for chunk in chunks:
+            pool.submit(self.geocode_chunk_in_place, table_name, chunk, min(chunk + chunk_size - 1, max_idx), idx_name)
+        pool.shutdown()
 
 
-
-
-#     # execute_sql_gdf("""
-#     #     SELECT a.index, a.input_address, g.addy, g.geomout, g.rating FROM
-#     #         (SELECT index, input_address FROM pa_act91_table WHERE rating IS NULL LIMIT 100) As a
-#     #     LEFT JOIN LATERAL
-#     #         geocode(a.input_address, 1) As g
-#     #     ON true""",
-#     #     geom_col='geomout',
-#     #     index_col='index')
-
-
-
-# # %%
-
-# %%
