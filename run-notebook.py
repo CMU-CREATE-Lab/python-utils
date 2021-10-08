@@ -9,6 +9,8 @@ parser.add_argument('--timeout', type=int, default=1800, help='Timeout, in secon
 args = parser.parse_args()
 
 notebook_path = os.path.abspath(sys.argv[1])
+# Add notebook directory to python library path
+sys.path.insert(0, os.path.dirname(notebook_path))
 
 def header():
     return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + (', pid(%d)' % os.getpid())
