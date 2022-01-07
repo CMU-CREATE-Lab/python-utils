@@ -1,7 +1,7 @@
 
 #%%
 import binascii, sys
-from utils.utils import ThCall, SimpleThreadPoolExecutor
+from utils import ThCall, SimpleThreadPoolExecutor
 
 """epsql:  Extensions to SQLAlchemy engine and connection
 
