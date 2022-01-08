@@ -1,7 +1,7 @@
 
 #%%
 import binascii, sys
-from utils import ThCall, SimpleThreadPoolExecutor
+import utils
 
 """epsql:  Extensions to SQLAlchemy engine and connection
 
@@ -197,7 +197,7 @@ class Engine(ConnectionExtensions):
                         mine = i
                     ret[mine] = con.geocode(addresses[mine], max_results)
         try:
-            threads = [ThCall(geocode) for x in range(nthreads)]
+            threads = [utils.ThCall(geocode) for x in range(nthreads)]
             for thread in threads:
                 thread.join()
         finally:
@@ -244,7 +244,7 @@ class Engine(ConnectionExtensions):
         max_idx = self.execute_returning_dicts(f'select max(idx) from {table_name}')[0]['max']
         print(f'geocode_in_place: {idx_name} ranges from {min_idx} to {max_idx}')
         print(max_idx)
-        pool = SimpleThreadPoolExecutor(nthreads)
+        pool = utils.SimpleThreadPoolExecutor(nthreads)
         chunks = list(range(min_idx, max_idx + 1, chunk_size))
         print(f'Geocoding in {len(chunks)} chunks of size {chunk_size}')
         for chunk in chunks:
