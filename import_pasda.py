@@ -47,5 +47,17 @@ def import_pasda_parcels(name, force=False):
 
 import_pasda_parcels('AlleghenyCounty_Parcels202107', True)
 
+def add_muni_nhbd_crosswalk():
+    engine.add_highest_overlap_crosswalk(
+        'pasda_wgs84.AlleghenyCounty_Parcels202107',
+        'municipality',
+        'allegheny_county_muni_nhbds',
+        'municipality'
+        )
 
-# %%
+    engine.add_highest_overlap_crosswalk(
+        'pasda_wgs84.AlleghenyCounty_Parcels202107',
+        'neighborhood',
+        'allegheny_county_muni_nhbds',
+        'neighborhood'
+        )
