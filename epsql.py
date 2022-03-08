@@ -47,7 +47,11 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
     def execute(self, *args, verbose=False, **kwargs):
         if verbose:
             print(f'{args[0]}')
-        return sqlalchemy.engine.base.Connection.execute(self, *args, **kwargs)
+        before = time.time()
+        ret=sqlalchemy.engine.base.Connection.execute(self, *args, **kwargs)
+        if verbose:
+            print(f'Completed in {time.time()-before:.1f} seconds')
+        return ret
 
     def execute_returning_dicts(self, *args, **kwargs):
         results = self.execute(*args, **kwargs)
@@ -62,6 +66,9 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
     def execute_returning_gdf(self, sql, **kwargs):
         import geopandas as gpd
         return gpd.read_postgis(sql, self, **kwargs)
+
+    def execute_update(self, *args, **kwargs):
+        return self.execute(*args, **kwargs).rowcount
 
     #def df_to_table(self, df, table_name, **kwargs):
     #    with Stopwatch(f'Adding {len(df)} records to {table_name}'):
