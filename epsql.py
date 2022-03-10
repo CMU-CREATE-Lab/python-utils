@@ -1,6 +1,6 @@
 
 #%%
-import binascii, sys
+import binascii, random, sys
 import utils
 
 """epsql:  Extensions to SQLAlchemy engine and connection
@@ -120,25 +120,42 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
         else:
             print('No invalid geometries')
 
-    # According to tests with pasda alleg county parcels, doing the same
-    # highest-overlap match seems 3-4x faster by creating an intermediate table
-    # using select / distinct on dest id / order by intersection desc
+    def add_highest_overlap_crosswalk(self, dest_table_name: str, dest_row_id, dest_new_col, src_table_name, src_col):
+        """Create a geographic crosswalk mapping each destination record to a single source record.
+        If multiple source records overlap a destination record, the one with the largest area overlap is chosen.
+        A source record may be recorded as a match to any number of destination records, including 0.
+        Typically the geographic entities in the destination table are smaller than those of the source table.
 
-    def add_highest_overlap_crosswalk(self, dest_table_name, dest_col, src_table_name, src_col):
-        # Assumes dest_col should be text
-        print(f'Adding {dest_table_name}.{dest_col} as crosswalk to {src_table_name}.{src_col} selecting highest overlap...')
-        self.execute(f'alter table {dest_table_name} add if not exists {dest_col} text;')
-        cmd = f"""
-        update {dest_table_name} as dest
-            set {dest_col} = (
-                select src.{src_col}
-                from {src_table_name} as src
-                where st_intersects(src.geom, dest.geom) and not st_touches(src.geom, dest.geom)
-                order by st_area(st_intersection(src.geom, dest.geom)) desc
-                limit 1)
+        Parameters:
+        dest_table_name:  Name of destination table, including schema if any.
+        dest_row_id:      A unique, indexed row for destination table usable for join.  Typically geoid for census.
+        dest_new_col:     Name of column to be created and filled with ID of source record with highest overlap.
+        src_table_name:   Name of source table, including schema if any.
+        src_col:          Name of unique ID for source record, to be filled into dest_new_col for matching dest record.
+                          Typically geoid for census.
         """
-        self.execute(cmd)
-        print(f'Done')
+
+        # Assumes dest_new_col should be text
+        print(f'Adding {dest_table_name}.{dest_new_col} as crosswalk to {src_table_name}.{src_col} selecting highest overlap...')
+        self.execute(f'alter table {dest_table_name} add if not exists {dest_new_col} text;')
+        tmp_table_name = f"tmp_crosswalk_{random.getrandbits(64):016x}"
+        cmd = f"""
+            -- create crosswalk as temporary table
+            create temp table {tmp_table_name} on commit drop as
+                select distinct on (dest_id) dest.{dest_row_id} as dest_id, src.{src_col} as src_id
+                    from {src_table_name} as src
+                    join {dest_table_name} as dest
+                    on st_intersects(src.geom, dest.geom) and not st_touches(src.geom, dest.geom)
+                    order by dest_id, st_area(st_intersection(src.geom, dest.geom)) desc;
+            create index {tmp_table_name}_idx on {tmp_table_name} (dest_id);
+            -- update dest_new_col
+            update {dest_table_name} as dest
+                set {dest_new_col} = tmp.src_id
+            from {tmp_table_name} as tmp
+            where dest.{dest_row_id} = tmp.dest_id
+        """
+        nrows = self.execute_update(cmd, verbose=True)
+        print(f'Created {nrows} crosswalk entries')
 
 def _with_connect(engine, member_name, *args, **kwargs):
     with engine.connect() as con:
