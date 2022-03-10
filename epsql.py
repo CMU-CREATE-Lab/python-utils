@@ -120,7 +120,7 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
         else:
             print('No invalid geometries')
 
-    def add_highest_overlap_crosswalk(self, dest_table_name: str, dest_row_id, dest_new_col, src_table_name, src_col):
+    def add_highest_overlap_crosswalk(self, dest_table_name: str, dest_row_id: str, dest_new_col: str, src_table_name: str, src_col: str):
         """Create a geographic crosswalk mapping each destination record to a single source record.
         If multiple source records overlap a destination record, the one with the largest area overlap is chosen.
         A source record may be recorded as a match to any number of destination records, including 0.
@@ -133,6 +133,10 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
         src_table_name:   Name of source table, including schema if any.
         src_col:          Name of unique ID for source record, to be filled into dest_new_col for matching dest record.
                           Typically geoid for census.
+
+        Performance considerations:
+        Both source and destination tables should have spatially indexed geometries.
+        This function is fairly performant, able to crosswalk ~11M blocks to ~2K tracts in around two hours on 2010-era server.
         """
 
         # Assumes dest_new_col should be text
