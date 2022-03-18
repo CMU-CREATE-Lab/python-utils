@@ -120,7 +120,9 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
         else:
             print('No invalid geometries')
 
-    def add_highest_overlap_crosswalk(self, dest_table_name: str, dest_row_id: str, dest_new_col: str, src_table_name: str, src_col: str):
+    def add_highest_overlap_crosswalk(
+            self, dest_table_name: str, dest_row_id: str, dest_new_col: str, src_table_name: str, src_col: str,
+            dest_row_id_min=None, dest_row_id_max=None):
         """Create a geographic crosswalk mapping each destination record to a single source record.
         If multiple source records overlap a destination record, the one with the largest area overlap is chosen.
         A source record may be recorded as a match to any number of destination records, including 0.
@@ -132,7 +134,9 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
         dest_new_col:     Name of column to be created and filled with ID of source record with highest overlap.
         src_table_name:   Name of source table, including schema if any.
         src_col:          Name of unique ID for source record, to be filled into dest_new_col for matching dest record.
-                          Typically geoid for census.
+                            Typically geoid for census.
+        dest_row_id_min:  (optional)  Minimum dest_row_id to update (for updating subset of table)
+        dest_row_id_max:  (optional)  Maximum dest_row_id to update (for updating subset of table)
 
         Performance considerations:
         Both source and destination tables should have spatially indexed geometries.
@@ -143,20 +147,28 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
         print(f'Adding {dest_table_name}.{dest_new_col} as crosswalk to {src_table_name}.{src_col} selecting highest overlap...')
         self.execute(f'alter table {dest_table_name} add if not exists {dest_new_col} text;')
         tmp_table_name = f"tmp_crosswalk_{random.getrandbits(64):016x}"
+
+        where_clauses = []
+        if dest_row_id_min:
+            where_clauses.append(f"dest.{dest_row_id} >= '{dest_row_id_min}'")
+        if dest_row_id_max:
+            where_clauses.append(f"dest.{dest_row_id} <= '{dest_row_id_max}'")
+        where_cond = " and ".join(where_clauses)
+
         cmd = f"""
-            -- create crosswalk as temporary table
             create temp table {tmp_table_name} on commit drop as
                 select distinct on (dest_id) dest.{dest_row_id} as dest_id, src.{src_col} as src_id
                     from {src_table_name} as src
                     join {dest_table_name} as dest
                     on st_intersects(src.geom, dest.geom) and not st_touches(src.geom, dest.geom)
+                    {f'where {where_cond}' if where_cond else ''}
                     order by dest_id, st_area(st_intersection(src.geom, dest.geom)) desc;
             create index {tmp_table_name}_idx on {tmp_table_name} (dest_id);
-            -- update dest_new_col
             update {dest_table_name} as dest
                 set {dest_new_col} = tmp.src_id
             from {tmp_table_name} as tmp
             where dest.{dest_row_id} = tmp.dest_id
+                {f'and {where_cond}' if where_cond else ''};
         """
         nrows = self.execute_update(cmd, verbose=True)
         print(f'Created {nrows} crosswalk entries')

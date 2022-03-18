@@ -8,9 +8,9 @@ engine = epsql.Engine()
 
 for year in [
 #    2010,
-    2018,
+#    2018,
 #    2019,
-#    2020
+    2020
     ]:
     for level in import_tiger.tiger_levels(year):
         import_tiger.load_tiger_geometries(
