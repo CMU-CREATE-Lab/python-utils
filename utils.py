@@ -193,11 +193,13 @@ def formatSecs(secs):
     return '%.1f days' % days
 
 class StatInstance:
-    def __init__(self, use_staging_server=False):
-        if use_staging_server:
-            self.server_hostname = 'stat-staging.createlab.org'
+    def __init__(self, use_staging_server=False, api_prefix=None):
+        if api_prefix:
+            self.api_prefix = api_prefix
+        elif use_staging_server:
+            self.api_prefix = "https://stat-staging.createlab.org"
         else:
-            self.server_hostname = 'stat.createlab.org'
+            self.api_prefix = "https://stat.createlab.org"
         self.hostname = None
         self.service = None
 
@@ -233,14 +235,14 @@ class StatInstance:
         sys.stdout.flush()
         timeoutInSecs = 20
         try:
-            response = requests.post('https://%s/api/log' % self.server_hostname,
+            response = requests.post(f'{self.api_prefix}/api/log',
                                      json=post_body, timeout=timeoutInSecs)
             if response.status_code != 200:
-                sys.stderr.write('POST to https://stat.createlab.org/api/log failed with status code %d and response %s' % (response.status_code, response.text))
+                sys.stderr.write(f'POST to {self.api_prefix}/api/log failed with status code {response.status_code} and response {response.text}')
                 sys.stderr.flush()
                 return
         except requests.exceptions.RequestException:
-            sys.stderr.write('POST to https://stat.createlab.org/api/log timed out')
+            sys.stderr.write(f'POST to {self.api_prefix}/api/log timed out')
             sys.stderr.flush()
 
     def info(self, summary, details=None, payload={}, host=None, service=None, shortname=None):
