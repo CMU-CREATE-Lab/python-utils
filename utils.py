@@ -220,6 +220,7 @@ class StatInstance:
         if not service:
             raise Exception('log: service must be passed, or set previously with set_service')            
         host = host or self.get_hostname()
+        shortname = shortname or host
         post_body = {
                 'service': service,
                 'datetime': self.get_datetime(),
