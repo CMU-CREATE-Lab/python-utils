@@ -90,6 +90,13 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
         cmd = f"INSERT INTO {table_name} ({keys}) VALUES ({values})"
         return self.execute(cmd, tuple(record_dict.values()))
 
+    # On conflict, do nothing
+    def insert_unless_conflict(self, table_name, record_dict):
+        keys = ','.join(record_dict.keys())
+        values = ','.join(['%s'] * len(record_dict))
+        cmd = f"INSERT INTO {table_name} ({keys}) VALUES ({values}) ON CONFLICT DO NOTHING"
+        return self.execute(cmd, tuple(record_dict.values()))
+
     # This performs insert, unless there's a conflict on the values contained in index_fields, in which case it will
     # update the conflicting record with values from record_dict
     # Use a unique or primary index on your table to trigger the update instead of insert
