@@ -87,8 +87,8 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
     def insert(self, table_name, record_dict):
         keys = ','.join(record_dict.keys())
         values = ','.join(['%s'] * len(record_dict))
-        cmd = f"INSERT INTO {table_name} ({keys}) VALUES ({values})"
-        return self.execute(cmd, tuple(record_dict.values()))
+        cmd = f"INSERT INTO {table_name} ({keys}) VALUES ({values}) RETURNING *"
+        return self.execute_returning_dicts(cmd, tuple(record_dict.values()))[0]
 
     # On conflict, do nothing
     def insert_unless_conflict(self, table_name, record_dict):
