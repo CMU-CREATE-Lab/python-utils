@@ -59,12 +59,12 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
 
     # For kwargs, see https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_sql_query.html
     def execute_returning_df(self, sql, **kwargs):
-        import pandas as pd
+        import pandas as pd # type: ignore
         return pd.read_sql_query(sql, self, **kwargs)
 
     # For kwargs, see https://geopandas.org/reference/geopandas.read_postgis.html#geopandas.read_postgis
     def execute_returning_gdf(self, sql, **kwargs):
-        import geopandas as gpd
+        import geopandas as gpd # type: ignore
         return gpd.read_postgis(sql, self, **kwargs)
 
     def execute_update(self, *args, **kwargs):
@@ -210,14 +210,18 @@ def _find_pghost():
     raise Exception(f'Attempting to find unix socket for postgresql, but cannot find any of {candidates}')
 
 class Engine(ConnectionExtensions):
-
     def __init__(self, engine=None, db_name="earthtime"):
         if not engine:
+
             # cocalc sets PGUSER to something unhelpful
             if 'PGUSER' in os.environ:
                 del os.environ['PGUSER']
 
-            # There's no syntax available for embedding a socket directory path in the postgresql:/// url,
+            # TODO: This link shows how to encode a unix socket path into a progresql:/// url, and would
+            # probably let us simplify this code somewhat
+            # https://stackoverflow.com/questions/27037990/connecting-to-postgres-via-database-url-and-unix-socket-in-rails
+
+            # OLD: There's no syntax available for embedding a socket directory path in the postgresql:/// url,
             # so we need to set instead using environment variable
             os.environ["PGHOST"] = _find_pghost()
 
