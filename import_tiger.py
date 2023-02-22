@@ -1,49 +1,67 @@
 #%%
 
-import glob, os, psycopg2, re
+import glob, os, psycopg2, re, sys
 import geopandas as gpd
-import utils
-import epsql
 
+# class ScriptDirInPath:
+#     def __enter__(self): sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+#     def __exit__(self, *_): sys.path.remove(os.path.dirname(os.path.realpath(__file__)))
+
+#with ScriptDirInPath():
+from utils import utils
+from utils import epsql
 
 #%%
 tiger_downloads = 'tiger_downloads'
 
 class TigerLevel:
     level_name: str
-    download_subdir: str
+    download_subdir: bool
     geoid_column_name: str
-    def __init__(self, level_name, download_subdir=None):
+    download_by_state: bool
+    def __init__(self, level_name, download_subdir=None, download_by_state=True):
         self.level_name = level_name
         if download_subdir == None:
             download_subdir = level_name.upper()
         self.download_subdir = download_subdir
         if level_name == 'tabblock10':
             self.geoid_column_name = 'geoid10'
+        elif level_name == 'tabblock20':
+            self.geoid_column_name = 'geoid20'
         else:
             self.geoid_column_name = 'geoid'
-
+        self.download_by_state = download_by_state
 
 def tiger_levels(year):
+    # county = TigerLevel('county', download_subdir="COUNTY", download_by_state=False)
+    # tract = TigerLevel("tract")
+    # blockgroup = TigerLevel("bg")
+    # #decade = int((year % 100) / 10) * 10
+    # decade = 20
+    # block = TigerLevel(f"tabblock{decade}")
+    # return [county, tract, blockgroup, block]
+
     if year == 2019 or year == 2018:
         return [
             TigerLevel('tract'), 
             TigerLevel('bg'), 
-            TigerLevel('tabblock10', download_subdir="TABBLOCK")
         ]
     elif year == 2010:
-        return [
-            TigerLevel('tract10'),
-            TigerLevel('bg10'),
-            TigerLevel('tabblock10')]
+        tract = TigerLevel("tract10")
+        # return [
+        #     TigerLevel('tract10'),
+        #     TigerLevel('bg10'),
+        #     TigerLevel('tabblock10')]
     elif year == 2020:
         return [
             TigerLevel('tract'),
             TigerLevel('bg'),
             TigerLevel('tabblock20'),
-            TigerLevel('tabblock10', download_subdir="TABBLOCK")
+            TigerLevel('tabblock10', download_subdir="TABBLOCK"),
+            TigerLevel('county', download_subdir="COUNTY", download_by_state=False),
         ]
-    assert(False)
+    else:
+        assert(False)
     
 def tiger_name(year: int, state_fips: str, level: TigerLevel):
     return f'tl_{year}_{state_fips}_{level.level_name}'
@@ -104,7 +122,13 @@ def read_tiger_shapefile_as_wgs84(year: int, state_fips: str, level: TigerLevel)
 
 # %%
 
-def load_tiger_geometries(engine, year: int, state_fips_list, level:TigerLevel , drop_first=False):
+def index_tiger_geometries(engine, table_name:str, level:TigerLevel):
+    schema = epsql.get_schema(table_name)
+    with engine.connect() as con:
+        con.execute(f'CREATE INDEX IF NOT EXISTS {epsql.get_table_name(table_name)}_geom_idx ON {table_name} USING GIST (geom)')
+        con.execute(f'CREATE INDEX IF NOT EXISTS {epsql.get_table_name(table_name)}_geoid_idx ON {table_name} ({level.geoid_column_name})')
+
+def load_tiger_geometries(engine, year: int, level:TigerLevel , drop_first=False):
     table_name = tiger_table_name(year, level)
     schema = epsql.get_schema(table_name)
     if schema != 'public':
@@ -116,21 +140,30 @@ def load_tiger_geometries(engine, year: int, state_fips_list, level:TigerLevel ,
     else:
         suffix=''
     with engine.connect() as con:
-        for state_fips in state_fips_list:
-            if con.table_exists(table_name) and con.execute_exists(f"SELECT EXISTS (SELECT FROM {table_name} WHERE statefp{suffix}='{state_fips}')"):
-                print(f'FIPS {state_fips} already loaded into {table_name}')
+        already_loaded = []
+        if level.download_by_state:
+            fips_list = all_state_fips
+        else:
+            fips_list = ['us']
+        for fips in fips_list:
+            if level.download_by_state:
+                state_filter = f"WHERE {level.geoid_column_name} LIKE '{fips}%%'"
             else:
-                gdf = read_tiger_shapefile_as_wgs84(year, state_fips, level)
+                state_filter = ''
+            if con.table_exists(table_name) and con.execute_exists(f"SELECT EXISTS (SELECT * FROM {table_name} {state_filter} LIMIT 1)"):
+                already_loaded.append(fips)
+            else:
+                gdf = read_tiger_shapefile_as_wgs84(year, fips, level)
                 gdf.to_postgis(
                     epsql.get_table_name(table_name),
                     con, 
                     schema = schema,
                     if_exists='append')
-                print(f'Wrote {len(gdf)} records to {table_name} from FIPS {state_fips}')
-
-        con.execute(f"""CREATE INDEX IF NOT EXISTS {epsql.get_table_name(table_name)}_geom_idx
-                    ON {table_name}
-                    USING GIST (geom);""")
+                print(f'{table_name}: Added {len(gdf)} records from FIPS {fips}')
+                index_tiger_geometries(engine, table_name, level)
+        if already_loaded:
+            print(f'{table_name}: Already loaded FIPS {", ".join(already_loaded)}')
+        index_tiger_geometries(engine, table_name, level)
 
 all_state_fips = [
     "01",
