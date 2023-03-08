@@ -53,6 +53,18 @@ class ConnectionExtensions(sqlalchemy.engine.base.Connection):
             print(f'Completed in {time.time()-before:.1f} seconds')
         return ret
 
+    def execute_returning_value(self, *args, **kwargs):
+        dicts = self.execute_returning_dicts(*args, **kwargs)
+        assert(len(dicts) == 1)
+        values = list(dicts[0].values())
+        assert(len(values) == 1)
+        return values[0]
+    
+    def execute_returning_geom(self, *args, **kwargs):
+        gdf = self.execute_returning_gdf(*args, **kwargs)
+        assert(len(gdf) == 1)
+        return gdf.geometry[0]
+
     def execute_returning_dicts(self, *args, **kwargs):
         results = self.execute(*args, **kwargs)
         return [dict(rec) for rec in results]
