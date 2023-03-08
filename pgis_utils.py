@@ -33,4 +33,18 @@ def pggeog(x):
 
 def pgarray(elts):
     return f"ARRAY[{','.join([pgval(elt) for elt in elts])}]"
-    
+
+def st_collect(engine, geoms):
+    return engine.execute_returning_geom(f"select st_collect({pgarray(geoms)}) as geom")
+
+def st_linemerge(engine, geom):
+    return engine.execute_returning_geom(f"select st_linemerge({pgval(geom)}) as geom")
+
+def st_union(engine, geoms):
+    return engine.execute_returning_geom(f"select st_union({pgarray(geoms)}) as geom")
+
+def st_intersection(engine, geom1, geom2):
+    return engine.execute_returning_geom(f"select st_intersection({pgval(geom1)}, {pgval(geom2)}) as geom")
+
+def st_buffer(engine, geom, radius_in_meters):
+    return engine.execute_returning_geom(f"select st_buffer({pggeog(geom)}, {radius_in_meters}) as geom")
