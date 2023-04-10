@@ -101,13 +101,18 @@ class SimpleThreadPoolExecutor(concurrent.futures.ThreadPoolExecutor):
 
     def get_futures(self):
         return self.futures
-
-    def shutdown(self):
+    
+    def shutdown(self, tqdm=None):
         exception_count = 0
         results = []
-        for completed in concurrent.futures.as_completed(self.futures):
+        as_completed = concurrent.futures.as_completed(self.futures)
+        if tqdm is not None:
+            tqdm.reset(len(self.futures))
+        for completed in as_completed:
             try:
                 results.append(completed.result())
+                if tqdm is not None:
+                    tqdm.update()
             except Exception:
                 exception_count += 1
                 sys.stderr.write(
@@ -270,25 +275,78 @@ Stat = StatInstance()
 
 # ThCall(func, *args, **kwargs) calls func(*args, **kwargs) in a separate thread
 # value() waits for func to complete and returns its value
+# If child raises an exception, value() will raise the same exception in the parent.
+
 class ThCall(threading.Thread):
     def __init__(self, func, *args, **kwargs):
         self._exc_info = None
+        self._output = {}
         def runner():
             try:
-                self._value = func(*args, **kwargs)
+                retval = func(*args, **kwargs)
             except Exception as e:
-                print(f'ThCall caught exception: {traceback.format_exc()}')
-                sys.stdout.flush()
+                print(f'ThCall is relaying child exception {repr(e)} to parent', file=sys.stderr)
+                sys.stderr.flush()
+                self._output = {
+                    "exception": e,
+                    "traceback": traceback.format_exc()
+                }
+                return
+            self._output = {"success": retval}
         super().__init__(target=runner)
         self.start()
     
     def value(self):
         if self.is_alive():
             self.join()
-        if self._exc_info:
-            raise self._exc_info[0]
+        if "exception" in self._output:
+            e = self._output["exception"]
+            print(f'ThCall is raising child exception in parent thread: {repr(e)}', file=sys.stderr)
+            print(f'Child traceback: {self._output["traceback"]}', file=sys.stderr)
+            sys.stderr.flush()
+            raise e
         else:
-            return self._value
+            return self._output["success"]
+
+import multiprocessing, sys, traceback
+
+# PrCall(func, *args, **kwargs) calls func(*args, **kwargs) in a separate process
+# value() waits for func to complete and returns its value.
+# If child raises an exception, value() will raise the same exception in the parent.
+
+class PrCall(multiprocessing.Process):
+    def __init__(self, func, *args, **kwargs):
+        # Create queue to pass return value from child process to parent process
+        self._queue = multiprocessing.Queue()
+        self._output = {}
+        def runner():
+            try:
+                retval = func(*args, **kwargs)
+            except Exception as e:
+                print(f'PrCall is relaying child exception {repr(e)} to parent', file=sys.stderr)
+                sys.stderr.flush()
+                self._queue.put({
+                    "exception": e,
+                    "traceback": traceback.format_exc()
+                })
+                return
+            self._queue.put({"success": retval})
+        super().__init__(target=runner)
+        self.start()
+    
+    def value(self):
+        if self.is_alive():
+            self.join()
+        if self._output == {}:
+            self._output = self._queue.get()
+        if "exception" in self._output:
+            e = self._output["exception"]
+            print(f'PrCall is raising child exception in parent process: {repr(e)}', file=sys.stderr)
+            print(f'Child traceback: {self._output["traceback"]}', file=sys.stderr)
+            sys.stderr.flush()
+            raise e
+        else:
+            return self._output["success"]
 
 def exec_ipynb(filename_or_url):
     nb = (requests.get(filename_or_url).json() if re.match(r'https?:', filename_or_url) else json.load(open(filename_or_url)))
