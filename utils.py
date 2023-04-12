@@ -119,6 +119,8 @@ class SimpleThreadPoolExecutor(concurrent.futures.ThreadPoolExecutor):
                     'Exception caught in SimpleThreadPoolExecutor.shutdown.  Continuing until all are finished.\n' +
                     'Exception follows:\n' +
                     traceback.format_exc())
+        if tqdm is not None:
+            tqdm.close()
         super(SimpleThreadPoolExecutor, self).shutdown()
         if exception_count:
             raise Exception('SimpleThreadPoolExecutor failed: %d of %d raised exception' % (exception_count, len(self.futures)))
