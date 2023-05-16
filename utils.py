@@ -141,18 +141,25 @@ class SimpleProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
     def get_futures(self):
         return self.futures
 
-    def shutdown(self):
+    def shutdown(self, tqdm=None):
         exception_count = 0
         results = []
-        for completed in concurrent.futures.as_completed(self.futures):
+        as_completed = concurrent.futures.as_completed(self.futures)
+        if tqdm is not None:
+            tqdm.reset(len(self.futures))
+        for completed in as_completed:
             try:
                 results.append(completed.result())
+                if tqdm is not None:
+                    tqdm.update()
             except Exception:
                 exception_count += 1
                 sys.stderr.write(
                     'Exception caught in SimpleProcessPoolExecutor.shutdown.  Continuing until all are finished.\n' +
                     'Exception follows:\n' +
                     traceback.format_exc())
+        if tqdm is not None:
+            tqdm.close()
         super(SimpleProcessPoolExecutor, self).shutdown()
         if exception_count:
             raise Exception('SimpleProcessPoolExecutor failed: %d of %d raised exception' % (exception_count, len(self.futures)))
