@@ -222,7 +222,7 @@ class StatInstance:
 
     def get_hostname(self):
         if not self.hostname:
-            self.hostname = subprocess_check('hostname').strip()
+            self.hostname = subprocess_check('hostname -s').strip()
         return self.hostname
 
     def set_service(self, service):
